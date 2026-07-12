@@ -128,26 +128,6 @@ en fonction des retours moyens de chaque cluster.
 | Bear | 2594 jours | -0.009 | 0.069 |
 | Sideways | 590 jours | +0.011 | 0.203 |
 
-## Structure du projet
-crypto-datalake/
-├── airflow/
-│   └── dags/
-│       └── crypto_pipeline.py   # DAGs Airflow (hourly + daily)
-├── api/
-│   ├── main.py                  # FastAPI gateway (6 endpoints)
-│   └── Dockerfile
-├── curated/
-│   └── clustering.py            # KMeans clustering (bull/bear/sideways)
-├── data/
-│   └── raw/
-│       └── btc_historical.csv   # Dataset Kaggle (non versionné)
-├── ingestion/
-│   └── ingest_raw.py            # Ingestion CSV + CoinGecko API
-├── staging/
-│   └── transform.py             # Agrégation daily + indicateurs techniques
-├── docker-compose.yml           # Elasticsearch + PostgreSQL + Airflow + API
-├── requirements.txt
-└── README.md
 
 ## Choix techniques
 
