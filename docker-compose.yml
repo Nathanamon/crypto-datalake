@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    mem_limit: 2g
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: nathan
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: crypto_lake
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    mem_limit: 512m
+
+  airflow:
+    image: apache/airflow:2.8.0
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://nathan:password@postgres/crypto_lake
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - _AIRFLOW_DB_MIGRATE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=admin
+      - _AIRFLOW_WWW_USER_PASSWORD=admin
+      - _AIRFLOW_WWW_USER_FIRSTNAME=Nathan
+      - _AIRFLOW_WWW_USER_LASTNAME=Dev
+      - _AIRFLOW_WWW_USER_EMAIL=admin@example.com
+      - _AIRFLOW_WWW_USER_ROLE=Admin
+      - _PIP_ADDITIONAL_REQUIREMENTS=scikit-learn pandas numpy psycopg2-binary elasticsearch requests
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./data:/opt/airflow/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    command: standalone
+    mem_limit: 3g
+
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_URL=postgresql://nathan:password@postgres/crypto_lake
+      - ES_URL=http://elasticsearch:9200
+    depends_on:
+      - postgres
+      - elasticsearch
+    volumes:
+      - ./data:/app/data
+    mem_limit: 512m
+
+volumes:
+  es_data:
+  pg_data:
