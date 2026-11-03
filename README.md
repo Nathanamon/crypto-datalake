@@ -1,80 +1,80 @@
 # Crypto Data Lake
 
-Pipeline de données end-to-end pour l'analyse de marché Bitcoin.
-Ingestion, transformation, clustering de régimes de marché et exposition via API.
+End-to-end data pipeline for Bitcoin market analysis.
+Ingestion, transformation, market regime clustering and exposure via API.
 
 ## Architecture
 Raw (Elasticsearch) → Staging (PostgreSQL) → Curated (PostgreSQL) → API (FastAPI)
 
-| Zone | Technologie | Contenu |
+| Zone | Technology | Content |
 |---|---|---|
-| Raw | Elasticsearch | 7.6M entrées OHLCV minute + prix live CoinGecko |
-| Staging | PostgreSQL | Données daily + indicateurs techniques (RSI, Bollinger, volatilité) |
-| Curated | PostgreSQL | Régimes de marché classifiés (bull/bear/sideways) via KMeans |
+| Raw | Elasticsearch | 7.6M minute-level OHLCV entries + live CoinGecko prices |
+| Staging | PostgreSQL | Daily data + technical indicators (RSI, Bollinger, volatility) |
+| Curated | PostgreSQL | Market regimes classified (bull/bear/sideways) via KMeans |
 
-## Sources de données
+## Data sources
 
-- **Fichier** : [Bitcoin Historical Data](https://www.kaggle.com/datasets/mczielinski/bitcoin-historical-data) (Kaggle) — données OHLCV à la minute depuis 2012
-- **API** : [CoinGecko API](https://www.coingecko.com/en/api) — prix live, market cap, volume (gratuite, sans clé)
+- **File**: [Bitcoin Historical Data](https://www.kaggle.com/datasets/mczielinski/bitcoin-historical-data) (Kaggle) — minute-level OHLCV data since 2012
+- **API**: [CoinGecko API](https://www.coingecko.com/en/api) — live price, market cap, volume (free, no key required)
 
-## Stack technique
+## Tech stack
 
-- **Elasticsearch 8.11** — stockage zone raw
-- **PostgreSQL 15** — stockage zones staging et curated
-- **Apache Airflow 2.8** — orchestration et scheduling
+- **Elasticsearch 8.11** — raw zone storage
+- **PostgreSQL 15** — staging and curated zone storage
+- **Apache Airflow 2.8** — orchestration and scheduling
 - **FastAPI** — API Gateway
-- **Scikit-learn** — KMeans clustering (détection de régimes de marché)
-- **Docker / Docker Compose** — containerisation
+- **Scikit-learn** — KMeans clustering (market regime detection)
+- **Docker / Docker Compose** — containerization
 
-## Installation et démarrage
+## Installation and setup
 
-### Prérequis
-- Docker Desktop installé et démarré
+### Prerequisites
+- Docker Desktop installed and running
 - Python 3.10+
-- Compte Kaggle (pour télécharger le dataset)
+- Kaggle account (to download the dataset)
 
-### 1. Clone le repo
+### 1. Clone the repo
 
 ```bash
-git clone <url-du-repo>
+git clone <repo-url>
 cd crypto-datalake
 ```
 
-### 2. Télécharge le dataset Kaggle
+### 2. Download the Kaggle dataset
 
-Télécharge le fichier CSV depuis :
+Download the CSV file from:
 https://www.kaggle.com/datasets/mczielinski/bitcoin-historical-data
 
-Place le fichier dans `data/raw/btc_historical.csv`
+Place the file in `data/raw/btc_historical.csv`
 
-### 3. Démarre les services
+### 3. Start the services
 
 ```bash
 docker-compose up -d
 ```
 
-Attends 30-60 secondes que Elasticsearch et PostgreSQL démarrent.
+Wait 30-60 seconds for Elasticsearch and PostgreSQL to start.
 
-### 4. Installe les dépendances Python
+### 4. Install the Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 5. Lance le pipeline complet
+### 5. Run the full pipeline
 
 ```bash
-# Zone Raw : ingestion CSV + API CoinGecko
+# Raw zone: CSV ingestion + CoinGecko API
 python ingestion/ingest_raw.py
 
-# Zone Staging : agrégation daily + indicateurs techniques
+# Staging zone: daily aggregation + technical indicators
 python staging/transform.py
 
-# Zone Curated : clustering KMeans
+# Curated zone: KMeans clustering
 python curated/clustering.py
 ```
 
-### 6. Lance l'API
+### 6. Start the API
 
 ```bash
 cd api
@@ -83,59 +83,59 @@ uvicorn main:app --reload --port 8000
 
 ## API Gateway
 
-Base URL : `http://localhost:8000`
+Base URL: `http://localhost:8000`
 
 | Endpoint | Description |
 |---|---|
-| `GET /health` | État de tous les services |
-| `GET /stats` | Métriques de remplissage par zone |
-| `GET /raw?limit=10` | Dernières entrées brutes (Elasticsearch) |
-| `GET /raw/live` | Dernier prix live CoinGecko |
-| `GET /staging?limit=10` | Données avec indicateurs techniques |
-| `GET /curated?limit=10` | Données avec régimes de marché |
-| `GET /curated/current-regime` | Régime de marché actuel |
+| `GET /health` | Status of all services |
+| `GET /stats` | Fill metrics per zone |
+| `GET /raw?limit=10` | Latest raw entries (Elasticsearch) |
+| `GET /raw/live` | Latest live CoinGecko price |
+| `GET /staging?limit=10` | Data with technical indicators |
+| `GET /curated?limit=10` | Data with market regimes |
+| `GET /curated/current-regime` | Current market regime |
 
-Documentation interactive : `http://localhost:8000/docs`
+Interactive documentation: `http://localhost:8000/docs`
 
-## Orchestration Airflow
+## Airflow orchestration
 
-Interface : `http://localhost:8080` (admin / admin)
+Interface: `http://localhost:8080` (admin / admin)
 
 | DAG | Schedule | Description |
 |---|---|---|
-| `ingest_live_dag` | @hourly | Ingère le prix BTC live depuis CoinGecko |
-| `full_pipeline_dag` | @daily | Recalcule staging + curated |
+| `ingest_live_dag` | @hourly | Ingests the live BTC price from CoinGecko |
+| `full_pipeline_dag` | @daily | Recomputes staging + curated |
 
-Le DAG `ingest_live_dag` utilise **XCom** pour passer le prix BTC entre les tâches `ingest_coingecko` et `log_price`.
+The `ingest_live_dag` DAG uses **XCom** to pass the BTC price between the `ingest_coingecko` and `log_price` tasks.
 
-## ML — Détection de régimes de marché
+## ML — Market regime detection
 
-Le pipeline curated applique un **KMeans clustering (k=3)** sur les features suivantes :
+The curated pipeline applies **KMeans clustering (k=3)** on the following features:
 - RSI (Relative Strength Index)
-- Volatilité glissante 7 jours
-- Volatilité glissante 30 jours
-- Retours journaliers
+- 7-day rolling volatility
+- 30-day rolling volatility
+- Daily returns
 
-Les données sont normalisées via `StandardScaler` avant le clustering.
-Les 3 clusters sont automatiquement labellisés **bull / bear / sideways**
-en fonction des retours moyens de chaque cluster.
+The data is normalized with `StandardScaler` before clustering.
+The 3 clusters are automatically labeled **bull / bear / sideways**
+based on the mean returns of each cluster.
 
-### Résultats sur données 2012-2026
+### Results on 2012-2026 data
 
-| Régime | Périodes | Retour moyen | Volatilité 7j |
+| Regime | Periods | Mean return | 7-day volatility |
 |---|---|---|---|
-| Bull | 2093 jours | +0.014 | 0.069 |
-| Bear | 2594 jours | -0.009 | 0.069 |
-| Sideways | 590 jours | +0.011 | 0.203 |
+| Bull | 2093 days | +0.014 | 0.069 |
+| Bear | 2594 days | -0.009 | 0.069 |
+| Sideways | 590 days | +0.011 | 0.203 |
 
 
-## Choix techniques
+## Technical choices
 
-**Pourquoi Elasticsearch pour la zone Raw ?**
-Elasticsearch est optimisé pour l'indexation et la recherche de grands volumes de documents JSON non structurés. Avec 7.6M de points de données à la minute, il permet une ingestion rapide par batch et des requêtes flexibles sur les données brutes.
+**Why Elasticsearch for the Raw zone?**
+Elasticsearch is optimized for indexing and searching large volumes of unstructured JSON documents. With 7.6M minute-level data points, it allows fast batch ingestion and flexible queries on the raw data.
 
-**Pourquoi PostgreSQL pour Staging et Curated ?**
-Les zones staging et curated contiennent des données structurées et agrégées (daily) sur lesquelles on effectue des requêtes SQL analytiques. PostgreSQL est le choix naturel pour ce type de données relationnelles.
+**Why PostgreSQL for Staging and Curated?**
+The staging and curated zones contain structured, aggregated (daily) data on which we run analytical SQL queries. PostgreSQL is the natural choice for this kind of relational data.
 
-**Pourquoi KMeans pour la détection de régimes ?**
-KMeans est un algorithme de clustering non supervisé accessible et interprétable. Avec k=3 clusters et une normalisation préalable des features, il permet de distinguer naturellement les phases de marché sans avoir besoin de données labellisées.
+**Why KMeans for regime detection?**
+KMeans is an accessible and interpretable unsupervised clustering algorithm. With k=3 clusters and prior feature normalization, it can naturally distinguish market phases without needing labeled data.
